@@ -11,7 +11,7 @@ COPY vendor/ vendor/
 COPY server/ server/
 COPY Makefile .
 
-RUN make magpie_server BUILD=release
+RUN mkdir -p test && make magpie_server BUILD=release
 
 FROM ubuntu:24.04 AS data
 
@@ -27,8 +27,8 @@ COPY src/ src/
 COPY cmd/ cmd/
 COPY Makefile .
 
-RUN ./download_data.sh
-RUN make magpie BUILD=release && ./convert_lexica.sh
+RUN mkdir -p test && ./download_data.sh
+RUN make magpie BUILD=release 2>&1 && ./convert_lexica.sh 2>&1
 
 FROM ubuntu:24.04
 
