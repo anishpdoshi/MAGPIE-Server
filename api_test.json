@@ -1,0 +1,10 @@
+{
+  "cgp": "15/15/15/15/15/15/15/3WINDY7/15/15/15/15/15/15/15 ADEEGIL/AEILOUY 0/32 0 -lex CSW21;",
+  "rack": "ADEEGIL",
+  "lexicon": "CSW21",
+  "num_plays": 5,
+  "plies": 2,
+  "iterations": 200,
+  "threads": 2,
+  "use_premium_map": true
+}

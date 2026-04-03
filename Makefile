@@ -102,6 +102,26 @@ $(OBJ_DIR)/$(TEST_DIR)/%.o: $(TEST_DIR)/%.c | $(OBJ_DIR) $(OBJ_DIR)/$(TEST_DIR) 
 $(BIN_DIR) $(OBJ_DIR) $(OBJ_DIR)/$(SRC_DIR) $(OBJ_DIR)/$(CMD_DIR) $(OBJ_DIR)/$(TEST_DIR) $(SRC_OBJ_SUBDIRS) $(TEST_OBJ_SUBDIRS):
 	mkdir -p $@
 
+VENDOR_DIR := vendor
+SERVER_DIR := server
+OBJ_VENDOR := $(OBJ_DIR)/$(VENDOR_DIR)/cJSON/cJSON.o $(OBJ_DIR)/$(VENDOR_DIR)/mongoose/mongoose.o
+OBJ_SERVER := $(OBJ_DIR)/$(SERVER_DIR)/magpie_server.o
+
+$(OBJ_DIR)/$(VENDOR_DIR)/cJSON/cJSON.o: $(VENDOR_DIR)/cJSON/cJSON.c | $(OBJ_DIR)/$(VENDOR_DIR)/cJSON
+	$(CC) $(if $(filter release,$(BUILD)),${cflags.release},$(CFLAGS)) -w -DBOARD_DIM=$(BOARD_DIM) -DRACK_SIZE=$(RACK_SIZE) -c $< -o $@
+
+$(OBJ_DIR)/$(VENDOR_DIR)/mongoose/mongoose.o: $(VENDOR_DIR)/mongoose/mongoose.c | $(OBJ_DIR)/$(VENDOR_DIR)/mongoose
+	$(CC) $(if $(filter release,$(BUILD)),${cflags.release},$(CFLAGS)) -w -DBOARD_DIM=$(BOARD_DIM) -DRACK_SIZE=$(RACK_SIZE) -c $< -o $@
+
+$(OBJ_DIR)/$(SERVER_DIR)/%.o: $(SERVER_DIR)/%.c | $(OBJ_DIR)/$(SERVER_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/$(VENDOR_DIR)/cJSON $(OBJ_DIR)/$(VENDOR_DIR)/mongoose $(OBJ_DIR)/$(SERVER_DIR):
+	mkdir -p $@
+
+magpie_server: $(OBJ_SRC) $(OBJ_VENDOR) $(OBJ_SERVER) | $(BIN_DIR)
+	$(CC) $(LDFLAGS) $(LFLAGS) $^ $(LDLIBS) -o $(BIN_DIR)/$@
+
 clean:
 	@$(RM) -rv $(BIN_DIR) $(OBJ_DIR)
 
