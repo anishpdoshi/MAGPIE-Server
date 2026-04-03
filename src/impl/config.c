@@ -132,6 +132,7 @@ typedef enum {
   ARG_TOKEN_USE_SMALL_PLAYS,
   ARG_TOKEN_SIM_WITH_INFERENCE,
   ARG_TOKEN_USE_HEAT_MAP,
+  ARG_TOKEN_USE_PREMIUM_MAP,
   ARG_TOKEN_WRITE_BUFFER_SIZE,
   ARG_TOKEN_HUMAN_READABLE,
   ARG_TOKEN_RANDOM_SEED,
@@ -247,6 +248,7 @@ struct Config {
   bool use_small_plays;
   bool sim_with_inference;
   bool use_heat_map;
+  bool use_premium_map;
   bool print_boards;
   bool print_on_finish;
   bool show_game_with_moves;
@@ -1469,6 +1471,13 @@ void add_help_arg_to_string_builder(const Config *config, int token,
              "when simulating. Heat maps may be memory intensive for many "
              "plays or plies.";
       break;
+    case ARG_TOKEN_USE_PREMIUM_MAP:
+      usages[0] = "<true_or_false>";
+      examples[0] = "true";
+      examples[1] = "false";
+      text = "Specifies whether or not to track premium square usage "
+             "frequencies for each candidate move when simulating.";
+      break;
     case ARG_TOKEN_WRITE_BUFFER_SIZE:
       usages[0] = "<write_buffer_size>";
       examples[0] = "10000";
@@ -1895,6 +1904,7 @@ char *impl_help(Config *config, ErrorStack *error_stack) {
         ARG_TOKEN_TIME_LIMIT,             /* tlim */
         ARG_TOKEN_TT_FRACTION_OF_MEM,     /* ttfraction */
         ARG_TOKEN_USE_HEAT_MAP,           /* useheatmap */
+        ARG_TOKEN_USE_PREMIUM_MAP,        /* usepremiummap */
         ARG_TOKEN_WRITE_BUFFER_SIZE,      /* wb */
         ARG_TOKEN_WIN_PCT,                /* winpct */
     };
@@ -2395,7 +2405,7 @@ void config_fill_sim_args(const Config *config, Rack *known_opp_rack,
       config->plies, config->move_list, config->num_plays, known_opp_rack,
       config->win_pcts, config->inference_results, config->thread_control,
       config->game, config->sim_with_inference, config->use_heat_map,
-      config->num_threads, config->print_interval,
+      config->use_premium_map, config->num_threads, config->print_interval,
       config->max_num_display_plays, config->shplies, config->seed,
       config->max_iterations, config->min_play_iterations,
       config->stop_cond_pct, config->threshold, config->time_limit_seconds,
@@ -2675,7 +2685,7 @@ void config_fill_autoplay_args(const Config *config,
       config->p1_sim_plies, /*move_list=*/NULL, config->p1_num_plays,
       /*known_opp_rack=*/NULL, config->win_pcts, /*inference_results=*/NULL,
       config->thread_control, /*game=*/NULL, config->p1_sim_with_inference,
-      /*use_heat_map=*/false,
+      /*use_heat_map=*/false, /*use_premium_map=*/false,
       /*num_threads=*/num_worker_threads_per_sim, /*print_interval=*/0,
       config->p1_num_plays, config->shplies,
       /*seed=*/0, config->p1_max_iterations, config->p1_min_play_iterations,
@@ -2688,6 +2698,7 @@ void config_fill_autoplay_args(const Config *config,
       /*known_opp_rack=*/NULL, config->win_pcts, /*inference_results=*/NULL,
       config->thread_control,
       /*game=*/NULL, config->p2_sim_with_inference, /*use_heat_map=*/false,
+      /*use_premium_map=*/false,
       /*num_threads=*/num_worker_threads_per_sim, /*print_interval=*/0,
       config->p2_num_plays, config->shplies,
       /*seed=*/0, config->p2_max_iterations, config->p2_min_play_iterations,
@@ -5836,6 +5847,14 @@ void config_load_data(Config *config, ErrorStack *error_stack) {
     return;
   }
 
+  // Use premium square map
+
+  config_load_bool(config, ARG_TOKEN_USE_PREMIUM_MAP, &config->use_premium_map,
+                   error_stack);
+  if (!error_stack_is_empty(error_stack)) {
+    return;
+  }
+
   // Human readable
 
   config_load_bool(config, ARG_TOKEN_HUMAN_READABLE, &config->human_readable,
@@ -6772,6 +6791,7 @@ Config *config_create(const ConfigArgs *config_args, ErrorStack *error_stack) {
   arg(ARG_TOKEN_USE_SMALL_PLAYS, "sp", 1, 1);
   arg(ARG_TOKEN_SIM_WITH_INFERENCE, "sinfer", 1, 1);
   arg(ARG_TOKEN_USE_HEAT_MAP, "useheatmap", 1, 1);
+  arg(ARG_TOKEN_USE_PREMIUM_MAP, "usepremiummap", 1, 1);
   arg(ARG_TOKEN_HUMAN_READABLE, "hr", 1, 1);
   arg(ARG_TOKEN_WRITE_BUFFER_SIZE, "wb", 1, 1);
   arg(ARG_TOKEN_RANDOM_SEED, "seed", 1, 1);
@@ -6887,6 +6907,7 @@ Config *config_create(const ConfigArgs *config_args, ErrorStack *error_stack) {
   config->p2_eq_margin_inference = config->eq_margin_inference;
   config->multi_threading_mode = MULTI_THREADING_MODE_PER_GAME_PARALLELISM;
   config->use_heat_map = false;
+  config->use_premium_map = false;
   config->print_boards = false;
   config->print_on_finish = false;
   config->show_game_with_moves = true;
@@ -7283,6 +7304,10 @@ void config_add_settings_to_string_builder(const Config *config,
     case ARG_TOKEN_USE_HEAT_MAP:
       config_add_bool_setting_to_string_builder(config, sb, arg_token,
                                                 config->use_heat_map);
+      break;
+    case ARG_TOKEN_USE_PREMIUM_MAP:
+      config_add_bool_setting_to_string_builder(config, sb, arg_token,
+                                                config->use_premium_map);
       break;
     case ARG_TOKEN_WRITE_BUFFER_SIZE:
       config_add_uint64_setting_to_string_builder(

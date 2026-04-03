@@ -9,6 +9,7 @@
 #include "game.h"
 #include "heat_map.h"
 #include "move.h"
+#include "premium_square_map.h"
 #include "stats.h"
 #include "win_pct.h"
 #include <stdbool.h>
@@ -29,6 +30,8 @@ const Stat *simmed_play_get_score_stat(const SimmedPlay *simmed_play,
 const Stat *simmed_play_get_bingo_stat(const SimmedPlay *simmed_play,
                                        int ply_index);
 HeatMap *simmed_play_get_heat_map(SimmedPlay *simmed_play, int ply_index);
+PremiumSquareMap *simmed_play_get_premium_map(SimmedPlay *simmed_play,
+                                              int ply_index);
 uint64_t simmed_play_get_ply_info_count(const SimmedPlay *simmed_play,
                                         int ply_index,
                                         ply_info_count_t count_type);
@@ -37,7 +40,7 @@ const Stat *simmed_play_get_win_pct_stat(const SimmedPlay *simmed_play);
 int simmed_play_get_play_index_by_sort_type(const SimmedPlay *simmed_play);
 uint64_t simmed_play_get_seed(SimmedPlay *simmed_play);
 void simmed_play_add_stats_for_ply(SimmedPlay *simmed_play, int ply_index,
-                                   const Move *move);
+                                   const Move *move, const Board *board);
 void simmed_play_add_equity_stat(SimmedPlay *simmed_play, Equity initial_spread,
                                  Equity spread, Equity leftover);
 double simmed_play_add_win_pct_stat(const WinPct *wp, SimmedPlay *simmed_play,
@@ -49,7 +52,8 @@ typedef struct SimResults SimResults;
 
 SimResults *sim_results_create(const double cutoff);
 void sim_results_reset(const MoveList *move_list, SimResults *sim_results,
-                       int num_plies, uint64_t seed, bool use_heat_map);
+                       int num_plies, uint64_t seed, bool use_heat_map,
+                       bool use_premium_map);
 void sim_results_destroy(SimResults *sim_results);
 
 int sim_results_get_number_of_plays(const SimResults *sim_results);

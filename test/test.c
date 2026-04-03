@@ -25,6 +25,7 @@
 #include "gameplay_test.h"
 #include "gcg_test.h"
 #include "heat_map_test.h"
+#include "premium_square_map_test.h"
 #include "infer_cmp_test.h"
 #include "infer_test.h"
 #include "klv_test.h"
@@ -93,6 +94,7 @@ static TestEntry test_table[] = {
     {"rv", test_random_variable},
     {"am", test_alias_method},
     {"hm", test_heat_map},
+    {"psm", test_premium_square_map},
     {"sim", test_sim},
     {"math", test_math_util},
     {"bai", test_bai},

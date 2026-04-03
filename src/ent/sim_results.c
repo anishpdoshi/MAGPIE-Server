@@ -7,9 +7,11 @@
 #include "../def/rack_defs.h"
 #include "../util/io_util.h"
 #include "bai_result.h"
+#include "board.h"
 #include "equity.h"
 #include "heat_map.h"
 #include "move.h"
+#include "premium_square_map.h"
 #include "rack.h"
 #include "stats.h"
 #include "win_pct.h"
@@ -24,6 +26,7 @@ typedef struct PlyInfo {
   Stat *score_stat;
   Stat *bingo_stat;
   HeatMap *heat_map;
+  PremiumSquareMap *premium_map;
   uint64_t ply_info_counts[NUM_PLY_INFO_COUNT_TYPES];
 } PlyInfo;
 
@@ -59,7 +62,7 @@ struct SimResults {
   uint64_t num_infer_leaves;
 };
 
-void ply_info_init(PlyInfo *ply_info, bool use_heat_map) {
+void ply_info_init(PlyInfo *ply_info, bool use_heat_map, bool use_premium_map) {
   ply_info->score_stat = stat_create(true);
   ply_info->bingo_stat = stat_create(true);
   if (use_heat_map) {
@@ -67,10 +70,15 @@ void ply_info_init(PlyInfo *ply_info, bool use_heat_map) {
   } else {
     ply_info->heat_map = NULL;
   }
+  if (use_premium_map) {
+    ply_info->premium_map = premium_square_map_create();
+  } else {
+    ply_info->premium_map = NULL;
+  }
   memset(ply_info->ply_info_counts, 0, sizeof(ply_info->ply_info_counts));
 }
 
-void ply_info_reset(PlyInfo *ply_info, bool use_heat_map) {
+void ply_info_reset(PlyInfo *ply_info, bool use_heat_map, bool use_premium_map) {
   stat_reset(ply_info->score_stat);
   stat_reset(ply_info->bingo_stat);
   if (use_heat_map) {
@@ -83,12 +91,22 @@ void ply_info_reset(PlyInfo *ply_info, bool use_heat_map) {
     heat_map_destroy(ply_info->heat_map);
     ply_info->heat_map = NULL;
   }
+  if (use_premium_map) {
+    if (!ply_info->premium_map) {
+      ply_info->premium_map = premium_square_map_create();
+    } else {
+      premium_square_map_reset(ply_info->premium_map);
+    }
+  } else {
+    premium_square_map_destroy(ply_info->premium_map);
+    ply_info->premium_map = NULL;
+  }
   memset(ply_info->ply_info_counts, 0, sizeof(ply_info->ply_info_counts));
 }
 
 SimmedPlay *simmed_play_create(const MoveList *move_list, int num_plies,
                                uint64_t seed, double cutoff, bool use_heat_map,
-                               const int i) {
+                               bool use_premium_map, const int i) {
   SimmedPlay *simmed_play = malloc_or_die(sizeof(SimmedPlay));
   move_copy(&simmed_play->move, move_list_get_move(move_list, i));
   simmed_play->equity_stat = stat_create(true);
@@ -97,7 +115,7 @@ SimmedPlay *simmed_play_create(const MoveList *move_list, int num_plies,
   simmed_play->num_alloc_plies = num_plies;
   simmed_play->ply_infos = malloc_or_die(sizeof(PlyInfo) * num_plies);
   for (int j = 0; j < num_plies; j++) {
-    ply_info_init(&simmed_play->ply_infos[j], use_heat_map);
+    ply_info_init(&simmed_play->ply_infos[j], use_heat_map, use_premium_map);
   }
   simmed_play->similarity_key = 0;
   simmed_play->play_index_by_sort_type = i;
@@ -110,19 +128,19 @@ SimmedPlay *simmed_play_create(const MoveList *move_list, int num_plies,
 SimmedPlay *simmed_play_reset(SimmedPlay *simmed_play,
                               const MoveList *move_list, int new_num_plies,
                               uint64_t seed, double cutoff, bool use_heat_map,
-                              const int i) {
+                              bool use_premium_map, const int i) {
   move_copy(&simmed_play->move, move_list_get_move(move_list, i));
   stat_reset(simmed_play->equity_stat);
   stat_reset(simmed_play->leftover_stat);
   stat_reset(simmed_play->win_pct_stat);
   for (int j = 0; j < simmed_play->num_alloc_plies && j < new_num_plies; j++) {
-    ply_info_reset(&simmed_play->ply_infos[j], use_heat_map);
+    ply_info_reset(&simmed_play->ply_infos[j], use_heat_map, use_premium_map);
   }
   if (new_num_plies > simmed_play->num_alloc_plies) {
     simmed_play->ply_infos =
         realloc_or_die(simmed_play->ply_infos, sizeof(PlyInfo) * new_num_plies);
     for (int j = simmed_play->num_alloc_plies; j < new_num_plies; j++) {
-      ply_info_init(&simmed_play->ply_infos[j], use_heat_map);
+      ply_info_init(&simmed_play->ply_infos[j], use_heat_map, use_premium_map);
     }
     simmed_play->num_alloc_plies = new_num_plies;
   }
@@ -137,12 +155,13 @@ SimmedPlay **create_simmed_plays_array(const MoveList *move_list,
                                        const int num_simmed_plays,
                                        const int num_plies, const uint64_t seed,
                                        const double cutoff,
-                                       const bool use_heat_map) {
+                                       const bool use_heat_map,
+                                       const bool use_premium_map) {
   SimmedPlay **simmed_plays =
       malloc_or_die((sizeof(SimmedPlay *)) * num_simmed_plays);
   for (int i = 0; i < num_simmed_plays; i++) {
-    simmed_plays[i] =
-        simmed_play_create(move_list, num_plies, seed, cutoff, use_heat_map, i);
+    simmed_plays[i] = simmed_play_create(move_list, num_plies, seed, cutoff,
+                                         use_heat_map, use_premium_map, i);
   }
   return simmed_plays;
 }
@@ -152,19 +171,20 @@ realloc_simmed_plays_array(SimmedPlay **simmed_plays, const MoveList *move_list,
                            const int old_num_alloc_sps,
                            const int new_num_alloc_sps, const int num_plies,
                            const uint64_t seed, const double cutoff,
-                           const bool use_heat_map) {
+                           const bool use_heat_map, const bool use_premium_map) {
   simmed_plays =
       realloc_or_die(simmed_plays, (sizeof(SimmedPlay *)) * new_num_alloc_sps);
   for (int i = old_num_alloc_sps; i < new_num_alloc_sps; i++) {
-    simmed_plays[i] =
-        simmed_play_create(move_list, num_plies, seed, cutoff, use_heat_map, i);
+    simmed_plays[i] = simmed_play_create(move_list, num_plies, seed, cutoff,
+                                         use_heat_map, use_premium_map, i);
   }
   return simmed_plays;
 }
 
 void sim_results_create_simmed_plays(SimResults *sim_results,
                                      const MoveList *move_list, int num_plies,
-                                     uint64_t seed, bool use_heat_map) {
+                                     uint64_t seed, bool use_heat_map,
+                                     bool use_premium_map) {
   const int num_simmed_plays = move_list_get_count(move_list);
   sim_results->num_simmed_plays = num_simmed_plays;
   sim_results->num_alloc_simmed_plays = num_simmed_plays;
@@ -172,22 +192,24 @@ void sim_results_create_simmed_plays(SimResults *sim_results,
   // FIXME: ensure heatmaps are off for sim autoplay
   sim_results->simmed_plays =
       create_simmed_plays_array(move_list, num_simmed_plays, num_plies, seed,
-                                sim_results->cutoff, use_heat_map);
+                                sim_results->cutoff, use_heat_map,
+                                use_premium_map);
   // FIXME: don't create display simmed plays for sim autoplay
   sim_results->display_simmed_plays = create_simmed_plays_array(
-      move_list, num_simmed_plays, num_plies, 0, 0, false);
+      move_list, num_simmed_plays, num_plies, 0, 0, false, false);
 }
 
 void sim_results_simmed_plays_reset(SimResults *sim_results,
                                     const MoveList *move_list, int num_plies,
-                                    uint64_t seed, bool use_heat_map) {
+                                    uint64_t seed, bool use_heat_map,
+                                    bool use_premium_map) {
   const int new_num_sps = move_list_get_count(move_list);
   for (int i = 0; i < sim_results->num_alloc_simmed_plays && i < new_num_sps;
        i++) {
     simmed_play_reset(sim_results->simmed_plays[i], move_list, num_plies, seed,
-                      sim_results->cutoff, use_heat_map, i);
+                      sim_results->cutoff, use_heat_map, use_premium_map, i);
     simmed_play_reset(sim_results->display_simmed_plays[i], move_list,
-                      num_plies, 0, 0, false, i);
+                      num_plies, 0, 0, false, false, i);
   }
   sim_results->num_plies = num_plies;
   sim_results->num_simmed_plays = new_num_sps;
@@ -195,11 +217,11 @@ void sim_results_simmed_plays_reset(SimResults *sim_results,
     sim_results->simmed_plays = realloc_simmed_plays_array(
         sim_results->simmed_plays, move_list,
         sim_results->num_alloc_simmed_plays, new_num_sps, num_plies, seed,
-        sim_results->cutoff, use_heat_map);
+        sim_results->cutoff, use_heat_map, use_premium_map);
     sim_results->display_simmed_plays =
         realloc_simmed_plays_array(sim_results->display_simmed_plays, move_list,
                                    sim_results->num_alloc_simmed_plays,
-                                   new_num_sps, num_plies, 0, 0, false);
+                                   new_num_sps, num_plies, 0, 0, false, false);
     sim_results->num_alloc_simmed_plays = new_num_sps;
   }
 }
@@ -208,6 +230,7 @@ void sim_results_simmed_plays_reset(SimResults *sim_results,
 // - PRNG
 // - mutex
 // - heat_map
+// - premium_map
 // - num_alloc_plies
 // - cutoff
 void simmed_play_copy(SimmedPlay *dst, const SimmedPlay *src,
@@ -235,6 +258,7 @@ void simmed_plays_destroy(SimmedPlay **simmed_plays, int num_alloc_sps) {
       stat_destroy(simmed_plays[i]->ply_infos[j].bingo_stat);
       stat_destroy(simmed_plays[i]->ply_infos[j].score_stat);
       heat_map_destroy(simmed_plays[i]->ply_infos[j].heat_map);
+      premium_square_map_destroy(simmed_plays[i]->ply_infos[j].premium_map);
     }
     free(simmed_plays[i]->ply_infos);
     stat_destroy(simmed_plays[i]->equity_stat);
@@ -267,14 +291,15 @@ void sim_results_unlock_simmed_plays(SimResults *sim_results) {
 }
 
 void sim_results_reset(const MoveList *move_list, SimResults *sim_results,
-                       int num_plies, uint64_t seed, bool use_heat_map) {
+                       int num_plies, uint64_t seed, bool use_heat_map,
+                       bool use_premium_map) {
   cpthread_mutex_lock(&sim_results->display_mutex);
   if (!sim_results->simmed_plays) {
     sim_results_create_simmed_plays(sim_results, move_list, num_plies, seed,
-                                    use_heat_map);
+                                    use_heat_map, use_premium_map);
   } else {
     sim_results_simmed_plays_reset(sim_results, move_list, num_plies, seed,
-                                   use_heat_map);
+                                   use_heat_map, use_premium_map);
   }
   atomic_init(&sim_results->node_count, 0);
   atomic_init(&sim_results->iteration_count, 0);
@@ -318,6 +343,11 @@ const Stat *simmed_play_get_bingo_stat(const SimmedPlay *simmed_play,
 
 HeatMap *simmed_play_get_heat_map(SimmedPlay *simmed_play, int ply_index) {
   return simmed_play->ply_infos[ply_index].heat_map;
+}
+
+PremiumSquareMap *simmed_play_get_premium_map(SimmedPlay *simmed_play,
+                                              int ply_index) {
+  return simmed_play->ply_infos[ply_index].premium_map;
 }
 
 uint64_t simmed_play_get_ply_info_count(const SimmedPlay *simmed_play,
@@ -419,7 +449,7 @@ void sim_results_set_num_infer_leaves(SimResults *sim_results,
 }
 
 void simmed_play_add_stats_for_ply(SimmedPlay *simmed_play, int ply_index,
-                                   const Move *move) {
+                                   const Move *move, const Board *board) {
   const double move_score = equity_to_double(move_get_score(move));
   bool is_bingo = false;
   ply_info_count_t count_type;
@@ -441,12 +471,17 @@ void simmed_play_add_stats_for_ply(SimmedPlay *simmed_play, int ply_index,
     return;
   }
   HeatMap *heat_map = simmed_play_get_heat_map(simmed_play, ply_index);
+  PremiumSquareMap *premium_map =
+      simmed_play_get_premium_map(simmed_play, ply_index);
   cpthread_mutex_lock(&simmed_play->mutex);
   stat_push(simmed_play->ply_infos[ply_index].score_stat, move_score, 1);
   stat_push(simmed_play->ply_infos[ply_index].bingo_stat, (double)(is_bingo),
             1);
   if (heat_map) {
     heat_map_add_move(heat_map, move);
+  }
+  if (premium_map) {
+    premium_square_map_add_move(premium_map, move, board);
   }
   simmed_play->ply_infos[ply_index].ply_info_counts[count_type]++;
   simmed_play->ply_infos[ply_index].ply_info_counts[PLY_INFO_COUNT_BINGO] +=
