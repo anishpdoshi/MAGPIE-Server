@@ -13,12 +13,13 @@ info:
     Win percentage is a float in [0, 1].
   version: 1.0.0
   license:
-    name: MIT
+    name: GPL-3.0
+    url: https://www.gnu.org/licenses/gpl-3.0.html
 
 servers:
   - url: http://localhost:8080
     description: Local development
-  - url: https://magpie-server.onrender.com
+  - url: https://magpie-server-rrk3.onrender.com
     description: Render deployment
 
 paths:
