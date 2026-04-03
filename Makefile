@@ -38,11 +38,16 @@ else
     endif
 endif
 
+# GCC emits false-positive -Wstringop-overflow= during LTO inlining of move.h
+ifeq ($(shell echo "int main() { return 0; }" | $(CC) -x c - -Werror -Wno-stringop-overflow -o /dev/null >/dev/null 2>&1; echo $$?),0)
+    WSTRINGOP := -Wno-stringop-overflow
+endif
+
 cflags.dev := -g -O0 -Wall -Wno-trigraphs -Wextra -Wshadow -Wstrict-prototypes -Werror $(FSAN_ARG)
 cflags.thread := -g -O0 -Wall -Wno-trigraphs -Wextra -Wshadow -Wstrict-prototypes -Werror -fsanitize=thread
 cflags.vlg := -g -O0 -Wall -Wno-trigraphs -Wextra
 cflags.cov := -g -O0 -Wall -Wno-trigraphs -Wextra --coverage
-cflags.release := -O3 -flto -march=native -DNDEBUG -Wall -Wno-trigraphs
+cflags.release := -O3 -flto=auto -march=native -DNDEBUG -Wall -Wno-trigraphs $(WSTRINGOP)
 # Test-specific flags: like release but without DNDEBUG (asserts always enabled in tests)
 cflags.test_release := -O3 -flto -march=native -Wall -Wno-trigraphs
 cflags.profile := -O3 -g -march=native -DNDEBUG -Wall -Wno-trigraphs -fno-omit-frame-pointer -mllvm -inline-threshold=0
@@ -54,7 +59,7 @@ lflags.cov := --coverage
 ldflags.dev := -pthread $(FSAN_ARG)
 ldflags.thread := -pthread -fsanitize=thread
 ldflags.vlg := -pthread
-ldflags.release := -pthread
+ldflags.release := -pthread $(WSTRINGOP)
 ldflags.profile := -pthread
 ldflags.cov := -pthread
 ldflags.dll_dev := -pthread
