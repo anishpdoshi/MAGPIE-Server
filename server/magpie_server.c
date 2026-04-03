@@ -1,3 +1,4 @@
+#include "../docs/swagger_ui.h"
 #include "../vendor/cJSON/cJSON.h"
 #include "../vendor/mongoose/mongoose.h"
 
@@ -27,7 +28,25 @@
 static Magpie *g_magpie = NULL;
 static pthread_mutex_t g_magpie_mutex = PTHREAD_MUTEX_INITIALIZER;
 static const char *g_data_paths = "./data:./testdata";
+static char *g_openapi_yaml = NULL;
 static volatile sig_atomic_t g_running = 1;
+
+static char *read_file(const char *path) {
+  FILE *f = fopen(path, "r");
+  if (!f) {
+    return NULL;
+  }
+  fseek(f, 0, SEEK_END);
+  long len = ftell(f);
+  fseek(f, 0, SEEK_SET);
+  char *buf = malloc((size_t)len + 1);
+  if (buf) {
+    size_t read_len = fread(buf, 1, (size_t)len, f);
+    buf[read_len] = '\0';
+  }
+  fclose(f);
+  return buf;
+}
 
 static void signal_handler(int sig) {
   (void)sig;
@@ -201,6 +220,22 @@ static cJSON *simmed_play_to_json(const SimmedPlay *display_sp,
   }
 
   return obj;
+}
+
+static void handle_docs(struct mg_connection *conn) {
+  mg_http_reply(conn, 200, "Content-Type: text/html\r\n", "%s",
+                swagger_ui_html);
+}
+
+static void handle_openapi_yaml(struct mg_connection *conn) {
+  if (g_openapi_yaml) {
+    mg_http_reply(conn, 200,
+                  "Content-Type: text/yaml\r\n"
+                  "Access-Control-Allow-Origin: *\r\n",
+                  "%s", g_openapi_yaml);
+  } else {
+    send_json_error(conn, 404, "openapi.yaml not found");
+  }
 }
 
 static void handle_health(struct mg_connection *conn) {
@@ -400,7 +435,12 @@ static void http_handler(struct mg_connection *conn, int ev, void *ev_data) {
   }
   struct mg_http_message *hm = (struct mg_http_message *)ev_data;
 
-  if (mg_match(hm->uri, mg_str("/api/health"), NULL)) {
+  if (mg_match(hm->uri, mg_str("/api/docs/openapi.yaml"), NULL)) {
+    handle_openapi_yaml(conn);
+  } else if (mg_match(hm->uri, mg_str("/api/docs"), NULL) ||
+             mg_match(hm->uri, mg_str("/api/docs/"), NULL)) {
+    handle_docs(conn);
+  } else if (mg_match(hm->uri, mg_str("/api/health"), NULL)) {
     handle_health(conn);
   } else if (mg_match(hm->uri, mg_str("/api/movegen"), NULL)) {
     if (mg_strcmp(hm->method, mg_str("POST")) != 0) {
@@ -464,7 +504,13 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
+  g_openapi_yaml = read_file("docs/openapi.yaml");
+  if (!g_openapi_yaml) {
+    fprintf(stderr, "warning: docs/openapi.yaml not found, /api/docs disabled\n");
+  }
+
   fprintf(stdout, "MAGPIE API server listening on %s\n", listen_addr);
+  fprintf(stdout, "API docs: %s/api/docs\n", listen_addr);
   fflush(stdout);
 
   while (g_running) {
@@ -474,5 +520,6 @@ int main(int argc, char *argv[]) {
   fprintf(stdout, "\nshutting down...\n");
   mg_mgr_free(&mgr);
   magpie_destroy(g_magpie);
+  free(g_openapi_yaml);
   return 0;
 }
