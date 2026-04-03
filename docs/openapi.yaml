@@ -1,0 +1,303 @@
+openapi: 3.1.0
+info:
+  title: MAGPIE Scrabble Engine API
+  description: |
+    HTTP API for the MAGPIE crossword game engine. Provides move generation
+    and Monte Carlo simulation with Best Arm Identification (BAI) for
+    Scrabble-family games.
+
+    Board positions use CGP (Crossword Game Position) format:
+    `<board> <p1_rack>/<p2_rack> <p1_score>/<p2_score> <consecutive_zeros> -lex <LEXICON>;`
+
+    Equity is in points (float). Scores are integer points.
+    Win percentage is a float in [0, 1].
+  version: 1.0.0
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development
+  - url: https://magpie-server.onrender.com
+    description: Render deployment
+
+paths:
+  /api/health:
+    get:
+      summary: Health check
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /api/movegen:
+    post:
+      summary: Generate moves
+      operationId: generateMoves
+      description: |
+        Generates and ranks candidate moves by static equity for a given
+        board position and rack. Fast — no simulation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MoveGenRequest"
+            example:
+              cgp: "15/15/15/15/15/15/15/15/15/15/15/15/15/15/15 AAADERW/ 0/0 0 -lex CSW21;"
+              rack: AAADERW
+              lexicon: CSW21
+              num_plays: 5
+      responses:
+        "200":
+          description: Moves generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MoveGenResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+  /api/sim:
+    post:
+      summary: Simulate moves
+      operationId: simulateMoves
+      description: |
+        Generates candidate moves, then runs Monte Carlo simulation with
+        Best Arm Identification to estimate win percentage and equity for
+        each candidate. Optionally tracks premium square usage by the
+        opponent at each ply.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SimRequest"
+            example:
+              cgp: "15/15/15/15/15/15/15/3WINDY7/15/15/15/15/15/15/15 ADEEGIL/AEILOUY 0/32 0 -lex CSW21;"
+              rack: ADEEGIL
+              lexicon: CSW21
+              num_plays: 5
+              plies: 2
+              iterations: 1000
+              threads: 4
+              use_premium_map: true
+      responses:
+        "200":
+          description: Simulation completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/ServerError"
+
+components:
+  schemas:
+    MoveGenRequest:
+      type: object
+      required: [cgp, rack]
+      properties:
+        cgp:
+          type: string
+          description: Board position in CGP format
+        rack:
+          type: string
+          description: Player's tile rack (e.g. "AAADERW")
+        lexicon:
+          type: string
+          default: CSW21
+          description: Lexicon to use (CSW21, NWL20, etc.)
+        num_plays:
+          type: integer
+          default: 15
+          description: Maximum number of moves to return
+
+    SimRequest:
+      type: object
+      required: [cgp, rack]
+      properties:
+        cgp:
+          type: string
+          description: Board position in CGP format
+        rack:
+          type: string
+          description: Player's tile rack
+        lexicon:
+          type: string
+          default: CSW21
+        num_plays:
+          type: integer
+          default: 15
+          description: Number of candidate moves to simulate
+        plies:
+          type: integer
+          default: 2
+          description: Simulation depth (number of half-turns to look ahead)
+        iterations:
+          type: integer
+          default: 1000
+          description: Maximum simulation iterations per move
+        min_iterations:
+          type: integer
+          default: 100
+          description: Minimum iterations before BAI can stop early
+        threads:
+          type: integer
+          default: 4
+          description: Number of worker threads for simulation
+        use_premium_map:
+          type: boolean
+          default: false
+          description: Track premium square usage frequencies per ply
+
+    Move:
+      type: object
+      properties:
+        move:
+          type: string
+          description: UCGI-format move string (e.g. "8f AWA", "pass", "ex ABC")
+        description:
+          type: string
+          description: Human-readable move description (e.g. "8F AWA")
+        leave:
+          type: string
+          description: Tiles remaining on rack after this move
+        type:
+          type: string
+          enum: [tile_placement, pass, exchange]
+        score:
+          type: integer
+          description: Points scored by this move
+        equity:
+          type: number
+          format: double
+          description: Static equity (score + leave value) in points
+        row:
+          type: integer
+          description: Starting row (0-indexed). Only for tile_placement.
+        col:
+          type: integer
+          description: Starting column (0-indexed). Only for tile_placement.
+        direction:
+          type: integer
+          description: "0 = horizontal, 1 = vertical. Only for tile_placement."
+        tiles_played:
+          type: integer
+          description: Number of tiles placed. Only for tile_placement.
+
+    SimmedPlay:
+      allOf:
+        - $ref: "#/components/schemas/Move"
+        - type: object
+          properties:
+            sim_equity_mean:
+              type: number
+              format: double
+              description: Mean equity from simulation (points)
+            sim_equity_stdev:
+              type: number
+              format: double
+              description: Standard deviation of simulated equity
+            win_pct:
+              type: number
+              format: double
+              description: Estimated win probability [0, 1]
+            iterations:
+              type: number
+              description: Number of simulation iterations completed
+            plies:
+              type: array
+              items:
+                $ref: "#/components/schemas/PlyStats"
+
+    PlyStats:
+      type: object
+      properties:
+        score_mean:
+          type: number
+          format: double
+          description: Mean score at this ply
+        bingo_pct:
+          type: number
+          format: double
+          description: Fraction of iterations where all 7 tiles were played
+        premium_square_map:
+          $ref: "#/components/schemas/PremiumSquareMap"
+
+    PremiumSquareMap:
+      type: object
+      description: Frequency of opponent plays landing on premium squares
+      properties:
+        trial_count:
+          type: number
+          description: Total simulation trials
+        squares:
+          type: array
+          items:
+            type: object
+            properties:
+              row:
+                type: integer
+              col:
+                type: integer
+              pct:
+                type: number
+                format: double
+                description: Fraction of trials where this premium square was used
+
+    MoveGenResponse:
+      type: object
+      properties:
+        moves:
+          type: array
+          items:
+            $ref: "#/components/schemas/Move"
+        num_moves:
+          type: integer
+          description: Total number of legal moves found
+
+    SimResponse:
+      type: object
+      properties:
+        plays:
+          type: array
+          items:
+            $ref: "#/components/schemas/SimmedPlay"
+        num_plays:
+          type: integer
+        iterations:
+          type: number
+          description: Total iterations across all plays
+
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+    ServerError:
+      description: Engine error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error:
+                type: string

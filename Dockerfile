@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /magpie
 
 COPY src/ src/
+COPY docs/ docs/
 COPY vendor/ vendor/
 COPY server/ server/
 COPY Makefile .
@@ -39,6 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /magpie
 
 COPY --from=builder /magpie/bin/magpie_server bin/magpie_server
+COPY --from=builder /magpie/docs/openapi.yaml docs/openapi.yaml
 COPY --from=data /magpie/data/ data/
 COPY --from=data /magpie/testdata/ testdata/
 
