@@ -1,7 +1,7 @@
 FROM ubuntu:24.04 AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential curl ca-certificates && \
+    build-essential git curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /magpie
@@ -16,7 +16,7 @@ RUN make magpie_server BUILD=release
 FROM ubuntu:24.04 AS data
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl ca-certificates && \
+    build-essential curl ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /magpie
@@ -24,15 +24,10 @@ WORKDIR /magpie
 COPY download_data.sh .
 COPY convert_lexica.sh .
 COPY src/ src/
+COPY cmd/ cmd/
 COPY Makefile .
 
 RUN ./download_data.sh
-
-# Build magpie CLI for lexicon conversion
-RUN apt-get update && apt-get install -y --no-install-recommends build-essential && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY cmd/ cmd/
 RUN make magpie BUILD=release && ./convert_lexica.sh
 
 FROM ubuntu:24.04

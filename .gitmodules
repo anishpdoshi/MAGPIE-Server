@@ -1,0 +1,6 @@
+[submodule "vendor/mongoose"]
+	path = vendor/mongoose
+	url = https://github.com/cesanta/mongoose.git
+[submodule "vendor/cJSON"]
+	path = vendor/cJSON
+	url = https://github.com/DaveGamble/cJSON.git

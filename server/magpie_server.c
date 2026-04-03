@@ -1,5 +1,5 @@
-#include "../vendor/cJSON.h"
-#include "../vendor/mongoose.h"
+#include "../vendor/cJSON/cJSON.h"
+#include "../vendor/mongoose/mongoose.h"
 
 #include "../src/def/board_defs.h"
 #include "../src/def/game_history_defs.h"
@@ -233,7 +233,8 @@ static void handle_movegen(struct mg_connection *conn,
   char cmd_buf[4096];
   snprintf(cmd_buf, sizeof(cmd_buf),
            "set -lex %s -wmp true -s1 equity -s2 equity "
-           "-r1 all -r2 all -numplays %d",
+           "-r1 all -r2 all -numplays %d "
+           "-useheatmap false -usepremiummap false",
            lexicon, num_plays);
   if (run_cmd(g_magpie, cmd_buf) != 0) {
     pthread_mutex_unlock(&g_magpie_mutex);
@@ -315,11 +316,13 @@ static void handle_sim(struct mg_connection *conn,
   pthread_mutex_lock(&g_magpie_mutex);
 
   char cmd_buf[4096];
+  int min_iterations = get_json_int(req, "min_iterations", 100);
   snprintf(cmd_buf, sizeof(cmd_buf),
            "set -lex %s -wmp true -s1 equity -s2 equity "
            "-r1 all -r2 all -numplays %d -plies %d -iter %d "
-           "-threads %d -scond none -usepremiummap %s",
-           lexicon, num_plays, plies, iterations, threads,
+           "-minp %d -threads %d -scond none -thres gk16 -sr tt "
+           "-cutoff 0 -useheatmap false -usepremiummap %s",
+           lexicon, num_plays, plies, iterations, min_iterations, threads,
            use_premium_map ? "true" : "false");
   if (run_cmd(g_magpie, cmd_buf) != 0) {
     pthread_mutex_unlock(&g_magpie_mutex);
@@ -417,12 +420,18 @@ static void http_handler(struct mg_connection *conn, int ev, void *ev_data) {
 }
 
 int main(int argc, char *argv[]) {
+  static char addr_buf[64];
   const char *listen_addr = "http://0.0.0.0:8080";
   const char *data_paths = g_data_paths;
 
+  const char *env_port = getenv("PORT");
+  if (env_port) {
+    snprintf(addr_buf, sizeof(addr_buf), "http://0.0.0.0:%s", env_port);
+    listen_addr = addr_buf;
+  }
+
   for (int arg_idx = 1; arg_idx < argc; arg_idx++) {
     if (strcmp(argv[arg_idx], "--port") == 0 && arg_idx + 1 < argc) {
-      static char addr_buf[64];
       snprintf(addr_buf, sizeof(addr_buf), "http://0.0.0.0:%s",
                argv[++arg_idx]);
       listen_addr = addr_buf;
