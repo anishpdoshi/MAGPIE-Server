@@ -20,6 +20,7 @@ typedef struct SimArgs {
   WinPct *win_pcts;
   bool use_inference;
   bool use_heat_map;
+  bool use_premium_map;
   InferenceResults *inference_results;
   InferenceArgs inference_args;
   int num_threads;
@@ -37,7 +38,7 @@ sim_args_fill(const int num_plies, const MoveList *move_list,
               InferenceResults *inference_results,
               ThreadControl *thread_control, const Game *game,
               const bool sim_with_inference, const bool use_heat_map,
-              const int num_threads, const int print_interval,
+              const bool use_premium_map, const int num_threads, const int print_interval,
               const int max_num_display_plays, const int max_num_display_plies,
               const uint64_t seed, const uint64_t max_iterations,
               const uint64_t min_play_iterations, const double scond,
@@ -54,6 +55,7 @@ sim_args_fill(const int num_plies, const MoveList *move_list,
   sim_args->game = game;
   sim_args->use_inference = sim_with_inference;
   sim_args->use_heat_map = use_heat_map;
+  sim_args->use_premium_map = use_premium_map;
   sim_args->num_threads = num_threads;
   sim_args->print_interval = print_interval;
   sim_args->max_num_display_plays = max_num_display_plays;

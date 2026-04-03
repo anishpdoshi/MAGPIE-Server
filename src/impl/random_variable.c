@@ -451,7 +451,8 @@ double rv_sim_sample(RandomVariables *rvs, const uint64_t play_index,
         leftover -= this_leftover;
       }
     }
-    simmed_play_add_stats_for_ply(simmed_play, ply, best_play);
+    simmed_play_add_stats_for_ply(simmed_play, ply, best_play,
+                                  game_get_board(game));
   }
 
   const Equity spread =
@@ -551,7 +552,8 @@ RandomVariables *rv_sim_create(RandomVariables *rvs, const SimArgs *sim_args,
   simmer->thread_control = thread_control;
 
   sim_results_reset(sim_args->move_list, sim_results, sim_args->num_plies,
-                    sim_args->seed, sim_args->use_heat_map);
+                    sim_args->seed, sim_args->use_heat_map,
+                    sim_args->use_premium_map);
   simmer->sim_results = sim_results;
 
   rvs->data = simmer;
@@ -597,8 +599,8 @@ void rv_sim_reset(RandomVariables *rvs, const SimArgs *sim_args) {
       (!simmer->known_opp_rack || rack_is_empty(simmer->known_opp_rack));
 
   sim_results_reset(sim_args->move_list, simmer->sim_results,
-                    sim_args->num_plies, sim_args->seed,
-                    sim_args->use_heat_map);
+                    sim_args->num_plies, sim_args->seed, sim_args->use_heat_map,
+                    sim_args->use_premium_map);
 }
 
 RandomVariables *rvs_create(const RandomVariablesArgs *rvs_args) {
