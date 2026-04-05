@@ -37,7 +37,9 @@ COPY data/lexica/ENABLE.txt data/lexica/ENABLE.txt
 RUN make magpie BUILD=release 2>&1 && ./convert_lexica.sh 2>&1
 RUN bin/magpie convert text2kwg ENABLE && \
     bin/magpie convert text2wordmap ENABLE -threads 4 && \
-    printf 'create klv ENABLE wwf_english\n' | timeout 10 bin/magpie || true
+    bin/magpie convert klv2csv NWL23 && \
+    grep -v '^NNNNNN,' data/lexica/NWL23.csv > data/lexica/ENABLE.csv && \
+    bin/magpie convert csv2klv ENABLE
 
 FROM ubuntu:24.04
 
