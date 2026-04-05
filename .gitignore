@@ -11,7 +11,16 @@ magpie*
 dev/*.txt
 perf*
 .env
-data
+data/**
+!data/layouts/
+data/layouts/**
+!data/layouts/wwf15.txt
+!data/letterdistributions/
+data/letterdistributions/**
+!data/letterdistributions/wwf_english.csv
+!data/lexica/
+data/lexica/**
+!data/lexica/ENABLE.txt
 testdata
 versioned-tarballs
 quackle

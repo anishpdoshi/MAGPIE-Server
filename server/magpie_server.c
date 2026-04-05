@@ -255,6 +255,9 @@ static void handle_movegen(struct mg_connection *conn,
   const char *cgp = get_json_string(req, "cgp", NULL);
   const char *rack = get_json_string(req, "rack", NULL);
   const char *lexicon = get_json_string(req, "lexicon", "CSW21");
+  const char *board_layout = get_json_string(req, "board_layout", NULL);
+  const char *letter_dist = get_json_string(req, "letter_distribution", NULL);
+  int bingo_bonus = get_json_int(req, "bingo_bonus", 50);
   int num_plays = get_json_int(req, "num_plays", 15);
 
   if (!cgp || !rack) {
@@ -266,11 +269,20 @@ static void handle_movegen(struct mg_connection *conn,
   pthread_mutex_lock(&g_magpie_mutex);
 
   char cmd_buf[4096];
-  snprintf(cmd_buf, sizeof(cmd_buf),
-           "set -lex %s -wmp true -s1 equity -s2 equity "
-           "-r1 all -r2 all -numplays %d "
-           "-useheatmap false -usepremiummap false",
-           lexicon, num_plays);
+  int cmd_offset = snprintf(cmd_buf, sizeof(cmd_buf),
+                            "set -lex %s -wmp true -s1 equity -s2 equity "
+                            "-r1 all -r2 all -numplays %d -bb %d "
+                            "-useheatmap false -usepremiummap false",
+                            lexicon, num_plays, bingo_bonus);
+  if (board_layout) {
+    cmd_offset +=
+        snprintf(cmd_buf + cmd_offset, sizeof(cmd_buf) - (size_t)cmd_offset,
+                 " -bdn %s", board_layout);
+  }
+  if (letter_dist) {
+    snprintf(cmd_buf + cmd_offset, sizeof(cmd_buf) - (size_t)cmd_offset,
+             " -ld %s", letter_dist);
+  }
   if (run_cmd(g_magpie, cmd_buf) != 0) {
     pthread_mutex_unlock(&g_magpie_mutex);
     send_json_error(conn, 500, "failed to configure engine");
@@ -336,6 +348,9 @@ static void handle_sim(struct mg_connection *conn,
   const char *cgp = get_json_string(req, "cgp", NULL);
   const char *rack = get_json_string(req, "rack", NULL);
   const char *lexicon = get_json_string(req, "lexicon", "CSW21");
+  const char *board_layout = get_json_string(req, "board_layout", NULL);
+  const char *letter_dist = get_json_string(req, "letter_distribution", NULL);
+  int bingo_bonus = get_json_int(req, "bingo_bonus", 50);
   int num_plays = get_json_int(req, "num_plays", 15);
   int plies = get_json_int(req, "plies", 2);
   int iterations = get_json_int(req, "iterations", 1000);
@@ -352,13 +367,23 @@ static void handle_sim(struct mg_connection *conn,
 
   char cmd_buf[4096];
   int min_iterations = get_json_int(req, "min_iterations", 100);
-  snprintf(cmd_buf, sizeof(cmd_buf),
-           "set -lex %s -wmp true -s1 equity -s2 equity "
-           "-r1 all -r2 all -numplays %d -plies %d -iter %d "
-           "-minp %d -threads %d -scond none -thres gk16 -sr tt "
-           "-cutoff 0 -useheatmap false -usepremiummap %s",
-           lexicon, num_plays, plies, iterations, min_iterations, threads,
-           use_premium_map ? "true" : "false");
+  int cmd_offset = snprintf(
+      cmd_buf, sizeof(cmd_buf),
+      "set -lex %s -wmp true -s1 equity -s2 equity "
+      "-r1 all -r2 all -numplays %d -plies %d -iter %d "
+      "-minp %d -threads %d -scond none -thres gk16 -sr tt "
+      "-cutoff 0 -bb %d -useheatmap false -usepremiummap %s",
+      lexicon, num_plays, plies, iterations, min_iterations, threads,
+      bingo_bonus, use_premium_map ? "true" : "false");
+  if (board_layout) {
+    cmd_offset +=
+        snprintf(cmd_buf + cmd_offset, sizeof(cmd_buf) - (size_t)cmd_offset,
+                 " -bdn %s", board_layout);
+  }
+  if (letter_dist) {
+    snprintf(cmd_buf + cmd_offset, sizeof(cmd_buf) - (size_t)cmd_offset,
+             " -ld %s", letter_dist);
+  }
   if (run_cmd(g_magpie, cmd_buf) != 0) {
     pthread_mutex_unlock(&g_magpie_mutex);
     send_json_error(conn, 500, "failed to configure engine");
