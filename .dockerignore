@@ -1,6 +1,9 @@
 bin/
 obj/
-data/
+data/*
+!data/layouts/wwf15.txt
+!data/letterdistributions/wwf_english.csv
+!data/lexica/ENABLE.txt
 testdata/
 *.o
 *.so
