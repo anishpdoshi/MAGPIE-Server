@@ -1,16 +1,19 @@
 openapi: 3.1.0
 info:
-  title: MAGPIE Scrabble Engine API
+  title: MAGPIE Crossword Game Engine API
   description: |
     HTTP API for the MAGPIE crossword game engine. Provides move generation
     and Monte Carlo simulation with Best Arm Identification (BAI) for
-    Scrabble-family games.
+    Scrabble-family games including Scrabble and Words With Friends.
 
     Board positions use CGP (Crossword Game Position) format:
     `<board> <p1_rack>/<p2_rack> <p1_score>/<p2_score> <consecutive_zeros> -lex <LEXICON>;`
 
     Equity is in points (float). Scores are integer points.
     Win percentage is a float in [0, 1].
+
+    For Words With Friends, pass `lexicon: "ENABLE"`, `board_layout: "wwf15"`,
+    `letter_distribution: "wwf_english"`, and `bingo_bonus: 35`.
   version: 1.0.0
   license:
     name: GPL-3.0
@@ -120,7 +123,17 @@ components:
         lexicon:
           type: string
           default: CSW21
-          description: Lexicon to use (CSW21, NWL20, etc.)
+          description: Lexicon to use (CSW21, NWL20, ENABLE for WWF)
+        board_layout:
+          type: string
+          description: Board layout name (e.g. "wwf15"). Omit for standard Scrabble.
+        letter_distribution:
+          type: string
+          description: Letter distribution name (e.g. "wwf_english"). Omit for default.
+        bingo_bonus:
+          type: integer
+          default: 50
+          description: Bonus points for playing all 7 tiles (50 for Scrabble, 35 for WWF)
         num_plays:
           type: integer
           default: 15
@@ -139,6 +152,17 @@ components:
         lexicon:
           type: string
           default: CSW21
+          description: Lexicon to use (CSW21, NWL20, ENABLE for WWF)
+        board_layout:
+          type: string
+          description: Board layout name (e.g. "wwf15"). Omit for standard Scrabble.
+        letter_distribution:
+          type: string
+          description: Letter distribution name (e.g. "wwf_english"). Omit for default.
+        bingo_bonus:
+          type: integer
+          default: 50
+          description: Bonus points for playing all 7 tiles (50 for Scrabble, 35 for WWF)
         num_plays:
           type: integer
           default: 15

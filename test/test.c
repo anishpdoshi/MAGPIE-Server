@@ -54,6 +54,7 @@
 #include "wmp_test.h"
 #include "word_prune_test.h"
 #include "word_test.h"
+#include "wwf_test.h"
 #include "zobrist_test.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -119,6 +120,7 @@ static TestEntry test_table[] = {
     {"zobrist", test_zobrist},
     {"tt", test_transposition_table},
     {"load", test_load_gcg},
+    {"wwf", test_wwf},
     {NULL, NULL} // Sentinel value to mark end of array
 };
 

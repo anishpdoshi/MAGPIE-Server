@@ -29,7 +29,15 @@ COPY cmd/ cmd/
 COPY Makefile .
 
 RUN mkdir -p test && ./download_data.sh
+
+COPY data/layouts/wwf15.txt data/layouts/wwf15.txt
+COPY data/letterdistributions/wwf_english.csv data/letterdistributions/wwf_english.csv
+COPY data/lexica/ENABLE.txt data/lexica/ENABLE.txt
+
 RUN make magpie BUILD=release 2>&1 && ./convert_lexica.sh 2>&1
+RUN bin/magpie convert text2kwg ENABLE && \
+    bin/magpie convert text2wordmap ENABLE -threads 4 && \
+    printf 'create klv ENABLE wwf_english\n' | timeout 10 bin/magpie || true
 
 FROM ubuntu:24.04
 

@@ -22,6 +22,7 @@ typedef enum {
   LD_TYPE_POLISH,
   LD_TYPE_DUTCH,
   LD_TYPE_FRENCH,
+  LD_TYPE_WWF_ENGLISH,
 } ld_t;
 
 enum {
@@ -657,6 +658,8 @@ static inline ld_t ld_get_type_from_lex_name(const char *full_lexicon_name,
       has_iprefix("America", lexicon_name) ||
       has_iprefix("CEL", lexicon_name)) {
     ld_type = LD_TYPE_ENGLISH;
+  } else if (has_iprefix("ENABLE", lexicon_name)) {
+    ld_type = LD_TYPE_WWF_ENGLISH;
   } else if (has_iprefix("RD", lexicon_name)) {
     ld_type = LD_TYPE_GERMAN;
   } else if (has_iprefix("NSF", lexicon_name)) {
@@ -697,6 +700,8 @@ static inline ld_t ld_get_type_from_ld_name(const char *ld_name,
     ld_type = LD_TYPE_POLISH;
   } else if (has_iprefix(DUTCH_LETTER_DISTRIBUTION_NAME, ld_name)) {
     ld_type = LD_TYPE_DUTCH;
+  } else if (has_iprefix(WWF_ENGLISH_LETTER_DISTRIBUTION_NAME, ld_name)) {
+    ld_type = LD_TYPE_WWF_ENGLISH;
   } else {
     error_stack_push(error_stack, ERROR_STATUS_LD_NAME_NOT_FOUND,
                      get_formatted_string(
@@ -754,6 +759,10 @@ static inline char *ld_get_default_name_from_type(ld_t ld_type,
     break;
   case LD_TYPE_DUTCH:
     ld_name = get_formatted_string("%s%s", DUTCH_LETTER_DISTRIBUTION_NAME,
+                                   ld_name_extension);
+    break;
+  case LD_TYPE_WWF_ENGLISH:
+    ld_name = get_formatted_string("%s%s", WWF_ENGLISH_LETTER_DISTRIBUTION_NAME,
                                    ld_name_extension);
     break;
   case LD_TYPE_UNKNOWN:
